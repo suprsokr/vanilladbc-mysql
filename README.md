@@ -21,10 +21,34 @@ go get github.com/suprsokr/vanilladbc-mysql
 
 ## Usage
 
-### With vanilladbc-cli
+### Environment Variables (Recommended)
+
+For security, use environment variables instead of command-line flags:
 
 ```bash
+# Set credentials in environment
+export MYSQL_HOST=localhost
+export MYSQL_PORT=3306
+export MYSQL_USER=root
+export MYSQL_PASSWORD=secret
+export MYSQL_DATABASE=wow_vanilla
+
 # Convert DBC to MySQL table
+vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 \
+  --plugin mysql \
+  --mysql-table spell
+
+# Import MySQL table back to DBC
+vanilladbc import Spell.dbd 1.12.1.5875 \
+  --plugin mysql \
+  --mysql-table spell \
+  --output Spell.dbc
+```
+
+### With Command-Line Flags
+
+```bash
+# Convert DBC to MySQL table (not recommended - password visible in process list)
 vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 \
   --plugin mysql \
   --mysql-host localhost \
@@ -33,17 +57,6 @@ vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 \
   --mysql-password secret \
   --mysql-database wow_vanilla \
   --mysql-table spell
-
-# Import MySQL table back to DBC
-vanilladbc import Spell.dbd 1.12.1.5875 \
-  --plugin mysql \
-  --mysql-host localhost \
-  --mysql-port 3306 \
-  --mysql-user root \
-  --mysql-password secret \
-  --mysql-database wow_vanilla \
-  --mysql-table spell \
-  --output Spell.dbc
 ```
 
 ### As a Library
@@ -58,7 +71,14 @@ import (
 )
 
 func main() {
-    // Configure MySQL connection
+    // Option 1: Load from environment variables (recommended)
+    plugin, err := mysqlplugin.NewFromEnv("spell")
+    if err != nil {
+        panic(err)
+    }
+    defer plugin.Close()
+    
+    // Option 2: Configure manually
     config := mysqlplugin.Config{
         Host:     "localhost",
         Port:     3306,
@@ -66,13 +86,11 @@ func main() {
         Password: "secret",
         Database: "wow_vanilla",
     }
-    
-    // Create plugin
-    plugin, err := mysqlplugin.New(config, "spell")
+    plugin2, err := mysqlplugin.New(config, "spell")
     if err != nil {
         panic(err)
     }
-    defer plugin.Close()
+    defer plugin2.Close()
     
     // ... use plugin.WriteHeader(), WriteRecord(), WriteFooter()
     // ... or plugin.ReadHeader(), ReadRecord()
@@ -96,6 +114,53 @@ The plugin automatically maps DBC types to appropriate MySQL column types:
 | float | 32-bit | FLOAT |
 | string | - | TEXT |
 | locstring | - | TEXT |
+
+## Security Best Practices
+
+### Environment Variables
+
+**Always use environment variables for credentials** instead of command-line flags:
+
+```bash
+# Good - credentials not visible in process list
+export MYSQL_PASSWORD=secret
+vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 --plugin mysql
+
+# Bad - password visible in ps aux, shell history
+vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 --mysql-password secret
+```
+
+### Supported Environment Variables
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `MYSQL_HOST` | localhost | No | MySQL server hostname |
+| `MYSQL_PORT` | 3306 | No | MySQL server port |
+| `MYSQL_USER` | root | No | MySQL username |
+| `MYSQL_PASSWORD` | - | **Yes** | MySQL password |
+| `MYSQL_DATABASE` | - | **Yes** | Database name |
+
+### .env File Support
+
+Create a `.env` file (add to `.gitignore`!):
+
+```bash
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=wow_user
+MYSQL_PASSWORD=secure_password_here
+MYSQL_DATABASE=wow_vanilla
+```
+
+Load it before running commands:
+
+```bash
+# Load .env file
+export $(cat .env | xargs)
+
+# Run conversion
+vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 --plugin mysql --mysql-table spell
+```
 
 ## Requirements
 
