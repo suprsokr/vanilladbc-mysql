@@ -1,6 +1,7 @@
 package mysqlplugin
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -43,6 +44,67 @@ func NewFromEnv(tableName string) (*Plugin, error) {
 	}
 
 	return New(config, tableName)
+}
+
+// LoadConfigFromFile loads MySQL configuration from a JSON file
+func LoadConfigFromFile(filename string) (Config, error) {
+	var config Config
+
+	file, err := os.ReadFile(filename)
+	if err != nil {
+		return config, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	err = json.Unmarshal(file, &config)
+	if err != nil {
+		return config, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Validate required fields
+	if config.Password == "" {
+		return config, fmt.Errorf("password is required in config file")
+	}
+	if config.Database == "" {
+		return config, fmt.Errorf("database is required in config file")
+	}
+
+	// Set defaults
+	if config.Host == "" {
+		config.Host = "localhost"
+	}
+	if config.Port == 0 {
+		config.Port = 3306
+	}
+	if config.User == "" {
+		config.User = "root"
+	}
+
+	return config, nil
+}
+
+// NewFromFile creates a new MySQL plugin using a JSON config file
+func NewFromFile(filename, tableName string) (*Plugin, error) {
+	config, err := LoadConfigFromFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config from file: %w", err)
+	}
+
+	return New(config, tableName)
+}
+
+// SaveConfigToFile saves the configuration to a JSON file
+func (c Config) SaveToFile(filename string) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	err = os.WriteFile(filename, data, 0600) // 0600 = read/write for owner only
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
 
 // getEnvOrDefault returns the environment variable value or a default if not set

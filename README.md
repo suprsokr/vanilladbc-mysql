@@ -59,6 +59,27 @@ vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 \
   --mysql-table spell
 ```
 
+### With Config File
+
+```bash
+# Create config.json (add to .gitignore!)
+cat > mysql-config.json << EOF
+{
+  "host": "localhost",
+  "port": 3306,
+  "user": "wow_user",
+  "password": "secure_password",
+  "database": "wow_vanilla"
+}
+EOF
+
+# Convert using config file
+vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 \
+  --plugin mysql \
+  --mysql-config mysql-config.json \
+  --mysql-table spell
+```
+
 ### As a Library
 
 ```go
@@ -78,7 +99,14 @@ func main() {
     }
     defer plugin.Close()
     
-    // Option 2: Configure manually
+    // Option 2: Load from JSON config file
+    plugin2, err := mysqlplugin.NewFromFile("mysql-config.json", "spell")
+    if err != nil {
+        panic(err)
+    }
+    defer plugin2.Close()
+    
+    // Option 3: Configure manually
     config := mysqlplugin.Config{
         Host:     "localhost",
         Port:     3306,
@@ -86,11 +114,11 @@ func main() {
         Password: "secret",
         Database: "wow_vanilla",
     }
-    plugin2, err := mysqlplugin.New(config, "spell")
+    plugin3, err := mysqlplugin.New(config, "spell")
     if err != nil {
         panic(err)
     }
-    defer plugin2.Close()
+    defer plugin3.Close()
     
     // ... use plugin.WriteHeader(), WriteRecord(), WriteFooter()
     // ... or plugin.ReadHeader(), ReadRecord()
@@ -161,6 +189,40 @@ export $(cat .env | xargs)
 # Run conversion
 vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 --plugin mysql --mysql-table spell
 ```
+
+### JSON Config File Format
+
+Create a `mysql-config.json` file (**add to `.gitignore`!**):
+
+```json
+{
+  "host": "localhost",
+  "port": 3306,
+  "user": "wow_user",
+  "password": "secure_password",
+  "database": "wow_vanilla"
+}
+```
+
+**Security Note:** The config file is created with `0600` permissions (owner read/write only) to protect credentials.
+
+Use the config file:
+
+```bash
+vanilladbc convert Spell.dbc Spell.dbd 1.12.1.5875 \
+  --plugin mysql \
+  --mysql-config mysql-config.json \
+  --mysql-table spell
+```
+
+### Configuration Priority
+
+The plugin loads configuration in this order (first found wins):
+
+1. **Config file** (if `--mysql-config` flag provided)
+2. **Environment variables**
+3. **Command-line flags**
+4. **Defaults** (host=localhost, port=3306, user=root)
 
 ## Requirements
 

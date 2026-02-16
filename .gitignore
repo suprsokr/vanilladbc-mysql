@@ -23,4 +23,6 @@ go.work
 
 # Config files with secrets
 config.json
+mysql-config.json
 *.env
+.env

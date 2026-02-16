@@ -12,11 +12,11 @@ import (
 
 // Config holds MySQL connection configuration
 type Config struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Database string
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	Database string `json:"database"`
 }
 
 // Plugin implements both plugin.Writer and plugin.Reader interfaces for MySQL
